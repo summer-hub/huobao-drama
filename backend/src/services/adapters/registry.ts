@@ -5,6 +5,7 @@
 import { MiniMaxImageAdapter } from './minimax-image'
 import { MiniMaxVideoAdapter } from './minimax-video'
 import { MiniMaxTTSAdapter } from './minimax-tts'
+import { ChatFireTTSAdapter } from './chatfire-tts'
 import { OpenAIImageAdapter } from './openai-image'
 import { GeminiImageAdapter } from './gemini-image'
 import { VolcEngineImageAdapter } from './volcengine-image'
@@ -12,6 +13,7 @@ import { VolcEngineVideoAdapter } from './volcengine-video'
 import { ViduVideoAdapter } from './vidu-video'
 import { AliImageAdapter } from './ali-image'
 import { AliVideoAdapter } from './ali-video'
+import { ChatFireVideoAdapter } from './chatfire-video'
 import type { ImageProviderAdapter, VideoProviderAdapter, TTSProviderAdapter } from './types'
 
 // 图片 Adapter 注册表
@@ -31,12 +33,13 @@ export const videoAdapters: Record<string, VideoProviderAdapter> = {
   volcengine: new VolcEngineVideoAdapter(),
   vidu: new ViduVideoAdapter(),
   ali: new AliVideoAdapter(),
-  // Chatfire 视频 - 待确认 API 格式
+  chatfire: new ChatFireVideoAdapter(),
 }
 
 // TTS Adapter 注册表
 export const ttsAdapters: Record<string, TTSProviderAdapter> = {
   minimax: new MiniMaxTTSAdapter(),
+  chatfire: new ChatFireTTSAdapter(),
 }
 
 export function getTTSAdapter(provider: string): TTSProviderAdapter {

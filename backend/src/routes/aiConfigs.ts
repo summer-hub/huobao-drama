@@ -10,9 +10,9 @@ const app = new Hono()
 
 const HUOBAO_PRESET_SERVICES = [
   { serviceType: 'text', label: '文本', provider: 'chatfire', baseUrl: 'https://api.chatfire.site', model: 'gemini-3-pro-preview', priority: 100 },
-  { serviceType: 'image', label: '图片', provider: 'gemini', baseUrl: 'https://api.chatfire.site', model: 'gemini-3-pro-image-preview', priority: 99 },
-  { serviceType: 'video', label: '视频', provider: 'volcengine', baseUrl: 'https://api.chatfire.site/volcengine', model: 'doubao-seedance-1-5-pro-251215', priority: 98 },
-  { serviceType: 'audio', label: '音频', provider: 'minimax', baseUrl: 'https://api.chatfire.site/minimax', model: 'speech-2.8-hd', priority: 97 },
+  { serviceType: 'image', label: '图片', provider: 'chatfire', baseUrl: 'https://api.chatfire.site', model: 'doubao-seedream-4-5-251128', priority: 99 },
+  { serviceType: 'video', label: '视频', provider: 'chatfire', baseUrl: 'https://api.chatfire.site', model: 'doubao-seedance-1-5-pro-251215', priority: 98 },
+  { serviceType: 'audio', label: '音频', provider: 'chatfire', baseUrl: 'https://api.chatfire.site', model: 'speech-2.8-hd', priority: 97 },
 ] as const
 
 const HUOBAO_AGENT_DEFAULTS = [

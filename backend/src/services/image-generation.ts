@@ -35,7 +35,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     prompt: params.prompt,
     model: params.model || config.model,
     provider: config.provider,
-    size: params.size || '1920x1080',
+    size: params.size || '1920x1920',
     frameType: params.frameType,
     referenceImages: params.referenceImages ? JSON.stringify(params.referenceImages) : null,
     status: 'processing',
