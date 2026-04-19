@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, isNull, like, desc } from 'drizzle-orm'
+import { eq, isNull, like, desc, inArray } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
@@ -13,33 +13,45 @@ app.get('/', async (c) => {
   const status = c.req.query('status')
   const keyword = c.req.query('keyword')
 
-  let query = db.select().from(schema.dramas).where(isNull(schema.dramas.deletedAt))
+  const allRows = await db.select().from(schema.dramas)
+    .where(isNull(schema.dramas.deletedAt))
+    .orderBy(desc(schema.dramas.updatedAt))
 
-  const allRows = await query.orderBy(desc(schema.dramas.updatedAt))
-  let filtered = allRows
-
-  if (status) filtered = filtered.filter(d => d.status === status)
-  if (keyword) filtered = filtered.filter(d => d.title.includes(keyword))
-
+  let filtered = status ? allRows.filter(d => d.status === status) : allRows
   const total = filtered.length
-  const items = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize)
 
-  // Attach episode/character/scene counts
-  const enriched = await Promise.all(items.map(async (drama) => {
-    const eps = await db.select().from(schema.episodes)
-      .where(eq(schema.episodes.dramaId, drama.id))
-    const chars = await db.select().from(schema.characters)
-      .where(eq(schema.characters.dramaId, drama.id))
-    const scns = await db.select().from(schema.scenes)
-      .where(eq(schema.scenes.dramaId, drama.id))
-    return {
-      ...toSnakeCase(drama),
-      tags: drama.tags ? JSON.parse(drama.tags) : [],
-      total_episodes: eps.length,
-      episodes: toSnakeCaseArray(eps),
-      characters: toSnakeCaseArray(chars),
-      scenes: toSnakeCaseArray(scns),
-    }
+  const kwItems = keyword ? filtered.filter(d => d.title.toLowerCase().includes(keyword.toLowerCase())) : null
+  const finalItems = kwItems ? kwItems.slice((page - 1) * pageSize, page * pageSize) : pageItems
+
+  if (!finalItems.length) {
+    return success(c, { items: [], pagination: { page, page_size: pageSize, total, total_pages: 0 } })
+  }
+
+  const dramaIds = finalItems.map(d => d.id)
+
+  // 批量 IN 查询替代 N+1（3次查询 vs N*3）
+  const [epsResult, charsResult, scnsResult] = await Promise.all([
+    db.select().from(schema.episodes).where(inArray(schema.episodes.dramaId, dramaIds)).all(),
+    db.select().from(schema.characters).where(inArray(schema.characters.dramaId, dramaIds)).all(),
+    db.select().from(schema.scenes).where(inArray(schema.scenes.dramaId, dramaIds)).all(),
+  ])
+
+  const groupBy = <T extends { dramaId: number }>(rows: T[]) => {
+    const m = new Map<number, T[]>()
+    for (const r of rows) { const arr = m.get(r.dramaId) || []; arr.push(r); m.set(r.dramaId, arr) }
+    return m
+  }
+  const epsByDid = groupBy(epsResult)
+  const charsByDid = groupBy(charsResult)
+  const scnsByDid = groupBy(scnsResult)
+
+  const enriched = finalItems.map(d => ({
+    ...toSnakeCase(d),
+    tags: d.tags ? JSON.parse(d.tags) : [],
+    episodes: toSnakeCaseArray(epsByDid.get(d.id) || []),
+    characters: toSnakeCaseArray(charsByDid.get(d.id) || []),
+    scenes: toSnakeCaseArray(scnsByDid.get(d.id) || []),
   }))
 
   return success(c, {

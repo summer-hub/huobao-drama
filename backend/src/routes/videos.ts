@@ -4,11 +4,12 @@ import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateVideo } from '../services/video-generation.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { rateLimitMiddleware } from '../middleware/rate-limit.js'
 
 const app = new Hono()
 
 // POST /videos — Generate video
-app.post('/', async (c) => {
+app.post('/', rateLimitMiddleware, async (c) => {
   const body = await c.req.json()
   if (!body.prompt) return badRequest(c, 'prompt is required')
 

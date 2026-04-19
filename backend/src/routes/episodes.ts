@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
@@ -75,8 +75,10 @@ app.get('/:id/characters', async (c) => {
     .where(eq(schema.episodeCharacters.episodeId, episodeId)).all()
   const charIds = links.map(l => l.characterId)
   if (!charIds.length) return success(c, [])
-  const allChars = db.select().from(schema.characters).all()
-  const result = allChars.filter(ch => charIds.includes(ch.id) && !ch.deletedAt)
+  const result = db.select().from(schema.characters)
+    .where(inArray(schema.characters.id, charIds))
+    .all()
+    .filter(ch => !ch.deletedAt)
   return success(c, toSnakeCaseArray(result))
 })
 
@@ -87,8 +89,10 @@ app.get('/:id/scenes', async (c) => {
     .where(eq(schema.episodeScenes.episodeId, episodeId)).all()
   const sceneIds = links.map(l => l.sceneId)
   if (!sceneIds.length) return success(c, [])
-  const allScenes = db.select().from(schema.scenes).all()
-  const result = allScenes.filter(sc => sceneIds.includes(sc.id) && !sc.deletedAt)
+  const result = db.select().from(schema.scenes)
+    .where(inArray(schema.scenes.id, sceneIds))
+    .all()
+    .filter(sc => !sc.deletedAt)
   return success(c, toSnakeCaseArray(result))
 })
 
@@ -110,8 +114,10 @@ app.get('/:episode_id/storyboards', async (c) => {
   const episodeCharIds = db.select().from(schema.episodeCharacters)
     .where(eq(schema.episodeCharacters.episodeId, episodeId)).all()
     .map(link => link.characterId)
-  const allChars = db.select().from(schema.characters).all()
-    .filter(ch => episodeCharIds.includes(ch.id) && !ch.deletedAt)
+  const allChars = db.select().from(schema.characters)
+    .where(inArray(schema.characters.id, episodeCharIds))
+    .all()
+    .filter(ch => !ch.deletedAt)
 
   return success(c, rows.map((row) => ({
     ...toSnakeCase(row),

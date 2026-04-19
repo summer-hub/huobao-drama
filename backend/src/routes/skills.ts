@@ -42,23 +42,32 @@ app.get('/', async (c) => {
   return success(c, skills)
 })
 
+function resolveSkillPath(id: string): { safe: boolean; filePath?: string } {
+  const sanitized = id.replace(/\.\./g, '')
+  const resolved = path.resolve(SKILLS_DIR, sanitized, 'SKILL.md')
+  if (!resolved.startsWith(SKILLS_DIR)) return { safe: false }
+  return { safe: true, filePath: resolved }
+}
+
 // GET /skills/:id — Get skill content
 app.get('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
-  const skillPath = path.join(SKILLS_DIR, id, 'SKILL.md')
-  if (!fs.existsSync(skillPath)) return badRequest(c, 'Skill not found')
-  const content = fs.readFileSync(skillPath, 'utf-8')
+  const { safe, filePath } = resolveSkillPath(id)
+  if (!safe || !filePath) return badRequest(c, 'Invalid skill id')
+  if (!fs.existsSync(filePath)) return badRequest(c, 'Skill not found')
+  const content = fs.readFileSync(filePath, 'utf-8')
   return success(c, { id, content })
 })
 
 // PUT /skills/:id — Update skill content
 app.put('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
+  const { safe, filePath } = resolveSkillPath(id)
+  if (!safe || !filePath) return badRequest(c, 'Invalid skill id')
   const body = await c.req.json()
-  const skillDir = path.join(SKILLS_DIR, id)
-  const skillPath = path.join(skillDir, 'SKILL.md')
+  const skillDir = path.dirname(filePath)
   if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true })
-  fs.writeFileSync(skillPath, body.content, 'utf-8')
+  fs.writeFileSync(filePath, body.content, 'utf-8')
   return success(c)
 })
 
@@ -68,10 +77,12 @@ app.post('/', async (c) => {
   const { id, name, description } = body
   if (!id) return badRequest(c, 'Skill id is required')
 
-  const skillDir = path.join(SKILLS_DIR, id)
-  if (fs.existsSync(skillDir)) return badRequest(c, 'Skill already exists')
+  const sanitizedId = id.replace(/\.\./g, '')
+  const resolved = path.resolve(SKILLS_DIR, sanitizedId)
+  if (!resolved.startsWith(SKILLS_DIR)) return badRequest(c, 'Invalid skill id')
+  if (fs.existsSync(resolved)) return badRequest(c, 'Skill already exists')
 
-  fs.mkdirSync(skillDir, { recursive: true })
+  fs.mkdirSync(resolved, { recursive: true })
   const content = `---
 name: ${name || id}
 description: ${description || ''}
@@ -81,16 +92,18 @@ description: ${description || ''}
 
 Write your skill content here.
 `
-  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content, 'utf-8')
+  fs.writeFileSync(path.join(resolved, 'SKILL.md'), content, 'utf-8')
   return success(c, { id, name: name || id, description: description || '' })
 })
 
 // DELETE /skills/:id — Delete skill directory
 app.delete('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
-  const skillDir = path.join(SKILLS_DIR, id)
-  if (!fs.existsSync(skillDir)) return badRequest(c, 'Skill not found')
-  fs.rmSync(skillDir, { recursive: true, force: true })
+  const sanitized = id.replace(/\.\./g, '')
+  const resolved = path.resolve(SKILLS_DIR, sanitized)
+  if (!resolved.startsWith(SKILLS_DIR)) return badRequest(c, 'Invalid skill id')
+  if (!fs.existsSync(resolved)) return badRequest(c, 'Skill not found')
+  fs.rmSync(resolved, { recursive: true, force: true })
   return success(c)
 })
 

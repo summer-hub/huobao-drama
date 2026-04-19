@@ -30,8 +30,12 @@ const projectRoot = path.resolve(__dirname, '../..')
 const app = new Hono()
 
 // Middleware
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3013,http://localhost:5679')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
 app.use('*', cors({
-  origin: ['http://localhost:3013', 'http://localhost:5679'],
+  origin: allowedOrigins,
   credentials: true,
 }))
 app.use('*', requestLogger)

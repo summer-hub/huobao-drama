@@ -6,6 +6,7 @@ import { generateImage } from '../services/image-generation.js'
 import { splitGridImage } from '../services/grid-split.js'
 import { createAgent } from '../agents/index.js'
 import { logTaskError, logTaskPayload, logTaskProgress } from '../utils/task-logger.js'
+import { rateLimitMiddleware } from '../middleware/rate-limit.js'
 
 const app = new Hono()
 
@@ -480,7 +481,7 @@ app.post('/prompt', async (c) => {
 })
 
 // POST /grid/generate
-app.post('/generate', async (c) => {
+app.post('/generate', rateLimitMiddleware, async (c) => {
   const body = await c.req.json()
   const {
     storyboard_ids,

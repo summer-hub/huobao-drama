@@ -344,6 +344,24 @@ sqlite.exec(`
   );
 `)
 
+// 关键查询字段索引
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_characters_drama_id ON characters(drama_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_scenes_drama_id ON scenes(drama_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_scenes_episode_id ON scenes(episode_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_storyboards_episode_id ON storyboards(episode_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_storyboards_status ON storyboards(status)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_episodes_drama_id ON episodes(drama_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_episodes_status ON episodes(status)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_image_generations_status ON image_generations(status)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_image_generations_storyboard_id ON image_generations(storyboard_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_video_generations_status ON video_generations(status)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_video_generations_storyboard_id ON video_generations(storyboard_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_ai_service_configs_service_type ON ai_service_configs(service_type)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_ai_service_configs_is_active ON ai_service_configs(is_active)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_props_drama_id ON props(drama_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_assets_drama_id ON assets(drama_id)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_assets_episode_id ON assets(episode_id)`)
+
 function ensureColumn(table: string, column: string, definition: string) {
   const tableExists = sqlite.prepare(
     `SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1`,

@@ -4,6 +4,7 @@ import { db, schema } from '../db/index.js'
 import { success, created, badRequest, now } from '../utils/response.js'
 import { generateImage } from '../services/image-generation.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { rateLimitMiddleware } from '../middleware/rate-limit.js'
 
 const app = new Hono()
 
@@ -38,7 +39,7 @@ app.put('/:id', async (c) => {
 })
 
 // POST /scenes/:id/generate-image
-app.post('/:id/generate-image', async (c) => {
+app.post('/:id/generate-image', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [scene] = db.select().from(schema.scenes).where(eq(schema.scenes.id, id)).all()

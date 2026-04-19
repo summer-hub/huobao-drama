@@ -5,6 +5,7 @@ import { success, badRequest, now } from '../utils/response.js'
 import { generateVoiceSample } from '../services/tts-generation.js'
 import { generateImage } from '../services/image-generation.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { rateLimitMiddleware } from '../middleware/rate-limit.js'
 
 const app = new Hono()
 
@@ -33,7 +34,7 @@ app.delete('/:id', async (c) => {
 })
 
 // POST /characters/:id/generate-voice-sample — 生成角色音色试听
-app.post('/:id/generate-voice-sample', async (c) => {
+app.post('/:id/generate-voice-sample', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json().catch(() => ({}))
   const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
@@ -59,7 +60,7 @@ app.post('/:id/generate-voice-sample', async (c) => {
 })
 
 // POST /characters/:id/generate-image
-app.post('/:id/generate-image', async (c) => {
+app.post('/:id/generate-image', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
@@ -82,13 +83,14 @@ app.post('/:id/generate-image', async (c) => {
 })
 
 // POST /characters/batch-generate-images
-app.post('/batch-generate-images', async (c) => {
+app.post('/batch-generate-images', rateLimitMiddleware, async (c) => {
   const body = await c.req.json()
   const ids: number[] = body.character_ids || []
   if (!body.episode_id) return badRequest(c, 'episode_id is required')
   const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
   if (!ep) return badRequest(c, 'Episode not found')
   const results: number[] = []
+  const failed: { characterId: number; error: string }[] = []
   for (const cid of ids) {
     const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, cid)).all()
     if (!char) continue
@@ -96,10 +98,13 @@ app.post('/batch-generate-images', async (c) => {
     try {
       const genId = await generateImage({ characterId: cid, dramaId: char.dramaId, prompt, configId: ep.imageConfigId ?? undefined })
       results.push(genId)
-    } catch {}
+    } catch (err: any) {
+      logTaskError('CharacterImage', 'batch-failed', { characterId: cid, error: err.message })
+      failed.push({ characterId: cid, error: err.message })
+    }
   }
-  logTaskSuccess('CharacterImage', 'batch-generate', { episodeId: ep.id, requested: ids.length, started: results.length })
-  return success(c, { count: results.length, ids: results })
+  logTaskSuccess('CharacterImage', 'batch-generate', { episodeId: ep.id, requested: ids.length, started: results.length, failedCount: failed.length })
+  return success(c, { count: results.length, ids: results, failed })
 })
 
 export default app

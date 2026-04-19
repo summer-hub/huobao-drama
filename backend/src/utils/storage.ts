@@ -14,6 +14,8 @@ const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../
  * 下载远程文件到本地存储
  */
 export async function downloadFile(url: string, subDir: string): Promise<string> {
+  validateExternalUrl(url) // 防止 SSRF
+
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
@@ -29,6 +31,47 @@ export async function downloadFile(url: string, subDir: string): Promise<string>
 
   // 返回相对路径（供 API 返回给前端）
   return `static/${subDir}/${filename}`
+}
+
+/**
+ * SSRF 防劫持校验：只允许 https:// 外部可访问地址
+ */
+function validateExternalUrl(urlString: string): void {
+  let url: URL
+  try {
+    url = new URL(urlString)
+  } catch {
+    throw new Error('Invalid URL')
+  }
+
+  const protocol = url.protocol.toLowerCase()
+  if (protocol !== 'https:') {
+    throw new Error(`SSRF blocked: only https:// is allowed, got ${protocol}`)
+  }
+
+  const hostname = url.hostname.toLowerCase()
+
+  // 阻止 localhost / 环回地址
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]') {
+    throw new Error('SSRF blocked: localhost is not allowed')
+  }
+
+  // 阻止内网 IP 段
+  if (isPrivateIp(hostname)) {
+    throw new Error(`SSRF blocked: private IP ${hostname} is not allowed`)
+  }
+}
+
+function isPrivateIp(hostname: string): boolean {
+  // 10.0.0.0/8
+  if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true
+  // 172.16.0.0/12
+  if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname)) return true
+  // 192.168.0.0/16
+  if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true
+  // 169.254.0.0/16 (link-local)
+  if (/^169\.254\.\d+\.\d+$/.test(hostname)) return true
+  return false
 }
 
 /**

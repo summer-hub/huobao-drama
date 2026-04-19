@@ -1,9 +1,11 @@
 /**
  * Vidu Webhook 回调处理
  * Vidu 在任务完成后会 POST 到此端点通知结果
+ * 验签: X-Vidu-Signature = HMAC-SHA256(body, WEBHOOK_SECRET)
  */
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
+import { createHmac } from 'crypto'
 import { db, schema } from '../db/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { downloadFile } from '../utils/storage.js'
@@ -12,10 +14,31 @@ import { logTaskError, logTaskProgress, logTaskSuccess, logTaskWarn } from '../u
 
 const app = new Hono()
 
+const WEBHOOK_SECRET = process.env.VIDU_WEBHOOK_SECRET || ''
+
+function verifyViduSignature(body: string, signature: string | undefined): boolean {
+  if (!WEBHOOK_SECRET) {
+    logTaskWarn('Webhook', 'vidu-no-secret', {})
+    return true // 未配置 secret 时跳过验证（开发环境）
+  }
+  if (!signature) return false
+  const expected = createHmac('sha256', WEBHOOK_SECRET).update(body, 'utf8').digest('hex')
+  // 支持 sha256= 前缀
+  const sig = signature.startsWith('sha256=') ? signature.slice(7) : signature
+  return sig === expected
+}
+
 // POST /webhooks/vidu
 // Vidu 回调格式: { task_id, state, video_url, ... }
 app.post('/vidu', async (c) => {
-  const body = await c.req.json()
+  const rawBody = await c.req.text()
+  const signature = c.req.header('x-vidu-signature')
+  if (!verifyViduSignature(rawBody, signature)) {
+    logTaskError('Webhook', 'vidu-bad-signature', {})
+    return badRequest(c, 'Invalid signature')
+  }
+
+  const body = JSON.parse(rawBody)
   const { task_id, state, video_url, error } = body
   logTaskProgress('Webhook', 'vidu-callback', {
     taskId: task_id,

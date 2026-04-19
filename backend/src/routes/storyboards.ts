@@ -5,6 +5,7 @@ import { success, created, now, badRequest } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { generateTTS } from '../services/tts-generation.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { rateLimitMiddleware } from '../middleware/rate-limit.js'
 
 const app = new Hono()
 
@@ -152,7 +153,7 @@ app.put('/:id', async (c) => {
 })
 
 // POST /storyboards/:id/generate-tts
-app.post('/:id/generate-tts', async (c) => {
+app.post('/:id/generate-tts', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
   const [sb] = db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id)).all()
   if (!sb) return badRequest(c, '镜头不存在')
