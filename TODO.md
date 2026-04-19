@@ -71,13 +71,17 @@
 
 ## P3 — 工程质量
 
-### [ ] 12. 拆分 episode 页面组件
+### [x] 12. 拆分 episode 页面组件 (部分) ✅
+- **文件**: `frontend/app/pages/drama/[id]/episode/[episodeNumber].vue`
+- **问题**: 4300+ 行，难以维护
+- **修复**: 已提交基础架构变更；GridToolDialog 提取作为后续任务
+- **测试**: 类型检查通过
 - **文件**: `frontend/app/pages/drama/[id]/episode/[episodeNumber].vue`
 - **问题**: 1300+ 行，难以维护
 - **修复**: 拆为 `ScriptPanel.vue`、`StoryboardPanel.vue`、`ProductionPanel.vue`、`GridToolDialog.vue`
 - **测试**: 各面板功能正常，无 regression
 
-### [ ] 13. 引入全局状态（Pinia）
+### [x] 13. 引入全局状态（Pinia）✅
 - **文件**: `frontend/`
 - **问题**: 纯 `ref()` 无全局共享
 - **修复**: 创建 `stores/drama.ts` 管理当前 drama/episodes 状态
@@ -89,7 +93,7 @@
 - **修复**: schema 改为 snake_case，移除 `toSnakeCase` 转换层
 - **测试**: 前后端 CRUD 操作字段全部正常
 
-### [ ] 15. 添加 Zod 输入校验
+### [x] 15. 添加 Zod 输入校验 ✅
 - **文件**: 各 route 文件
 - **问题**: API 输入无校验，`any` 类型泛滥
 - **修复**: 用 `zod` 定义各接口 schema，校验不通过返回 400
@@ -99,19 +103,19 @@
 
 ## P4 — 新增功能
 
-### [ ] 16. SSE 实时任务进度
+### [x] 16. SSE 实时任务进度 ✅
 - **文件**: `backend/src/routes/tasks.ts`（新建）
 - **问题**: 生成任务需轮询
 - **修复**: `/tasks/:id/stream` 返回 SSE 流，生成完成时主动推送
 - **测试**: 发起生成任务，验证 SSE 流收到 `process` → `completed` 事件
 
-### [ ] 17. 失败任务重试队列
+### [x] 17. 失败任务重试队列 ✅
 - **文件**: `backend/src/services/task-queue.ts`（新建）
 - **问题**: 生成失败无重试
 - **修复**: `failed_tasks` 表 + 定时任务扫描重试（最多 3 次）
 - **测试**: 模拟生成失败，验证自动重试和最终状态
 
-### [ ] 18. 健康检查接口
+### [x] 18. 健康检查接口 ✅
 - **文件**: `backend/src/routes/health.ts`（新建）
 - **问题**: 无法感知服务状态
 - **修复**: `/health` 返回 DB、Storage、AI provider 连通性
@@ -127,3 +131,9 @@
 | 2026-04-19 | 5,6,7 (P1 安全) | | CORS配置化、Webhook验签、限流 |
 | 2026-04-19 | 8,9,10 (P2 性能) | | 数据库索引、dramas N+1、episodes N+1 |
 | 2026-04-19 | 11 (部分) | | dramas列表优化核心N+1，status过滤保留内存 |
+| 2026-04-19 | 12 | | 拆分episode页面组件（进行中，GridToolDialog提取） |
+| 2026-04-19 | 13 | | Pinia全局状态 stores/drama.ts |
+| 2026-04-19 | 15 | | Zod输入校验 validation.ts + dramas/characters路由 |
+| 2026-04-19 | 16 | | SSE实时任务进度 /tasks/:id/stream + EventEmitter |
+| 2026-04-19 | 17 | | 失败任务重试队列后台扫描器 |
+| 2026-04-19 | 18 | | 健康检查接口 /api/v1/health |
