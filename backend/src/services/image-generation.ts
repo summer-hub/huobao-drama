@@ -6,6 +6,7 @@ import { downloadFile, readImageAsCompressedDataUrl, saveBase64Image } from '../
 import { getImageAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
+import { taskEvents } from './task-events.js'
 
 interface GenerateImageParams {
   storyboardId?: number
@@ -69,7 +70,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
   return lastId
 }
 
-async function processImageGeneration(id: number, config: AIConfig) {
+export async function processImageGeneration(id: number, config: AIConfig) {
   const adapter = getImageAdapter(config.provider)
 
   try {
@@ -151,6 +152,7 @@ async function processImageGeneration(id: number, config: AIConfig) {
       .where(eq(schema.imageGenerations.id, id))
       .run()
     logTaskProgress('ImageTask', 'poll-start', { id, taskId, provider: config.provider })
+    taskEvents.emitTaskEvent(id, 'processing', { stage: 'poll-start', taskId, provider: config.provider })
     pollImageTask(id, config, taskId!)
   } catch (err: any) {
     logTaskError('ImageTask', 'process', { id, provider: config.provider, error: err.message })
@@ -158,6 +160,7 @@ async function processImageGeneration(id: number, config: AIConfig) {
       .set({ status: 'failed', errorMsg: err.message, updatedAt: now() })
       .where(eq(schema.imageGenerations.id, id))
       .run()
+    taskEvents.emitTaskEvent(id, 'failed', { error: err.message })
   }
 }
 
@@ -271,6 +274,7 @@ async function pollImageTask(id: number, config: AIConfig, taskId: string) {
         return
       }
       logTaskWarn('ImageTask', 'poll-retry', { id, taskId, attempt: i + 1, error: err.message })
+      taskEvents.emitTaskEvent(id, 'processing', { stage: 'poll', attempt: i + 1, maxAttempts: 120, error: err.message })
     }
   }
 }
@@ -285,6 +289,7 @@ async function handleImageComplete(id: number, provider: string, imageUrl: strin
     .where(eq(schema.imageGenerations.id, id))
     .run()
   logTaskSuccess('ImageTask', 'downloaded', { id, provider, localPath })
+  taskEvents.emitTaskEvent(id, 'completed', { imageUrl, localPath })
 
   // 更新关联表
   if (record?.storyboardId) {
@@ -312,6 +317,7 @@ async function handleImageCompleteBase64(id: number, provider: string, base64Dat
     .where(eq(schema.imageGenerations.id, id))
     .run()
   logTaskSuccess('ImageTask', 'saved-base64', { id, provider, mimeType, localPath })
+  taskEvents.emitTaskEvent(id, 'completed', { localPath })
 
   // 更新关联表
   if (record?.storyboardId) {

@@ -362,6 +362,25 @@ sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_props_drama_id ON props(drama_id)`)
 sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_assets_drama_id ON assets(drama_id)`)
 sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_assets_episode_id ON assets(episode_id)`)
 
+// 失败任务重试队列表
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS failed_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    original_table TEXT NOT NULL,
+    original_id INTEGER NOT NULL,
+    task_type TEXT NOT NULL,
+    params TEXT,
+    error_msg TEXT,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    next_retry_at TEXT
+  );
+`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_failed_tasks_status ON failed_tasks(status)`)
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_failed_tasks_next_retry ON failed_tasks(next_retry_at)`)
+
 function ensureColumn(table: string, column: string, definition: string) {
   const tableExists = sqlite.prepare(
     `SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1`,

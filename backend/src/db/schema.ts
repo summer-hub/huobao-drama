@@ -323,3 +323,17 @@ export const assets = sqliteTable('assets', {
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
 })
+
+export const failedTasks = sqliteTable('failed_tasks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  originalTable: text('original_table').notNull(),
+  originalId: integer('original_id').notNull(),
+  taskType: text('task_type').notNull(),
+  params: text('params'),
+  errorMsg: text('error_msg'),
+  retryCount: integer('retry_count').default(0),
+  maxRetries: integer('max_retries').default(3),
+  status: text('status').default('pending'),
+  createdAt: text('created_at').notNull(),
+  nextRetryAt: text('next_retry_at'),
+})

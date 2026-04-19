@@ -3,6 +3,7 @@ import { eq, isNull, like, desc, inArray } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
+import { CreateDramaSchema, UpdateDramaSchema, validateBody } from '../utils/validation.js'
 
 const app = new Hono()
 
@@ -62,7 +63,12 @@ app.get('/', async (c) => {
 
 // POST /dramas - Create drama
 app.post('/', async (c) => {
-  const body = await c.req.json()
+  let body: Record<string, any>
+  try {
+    body = await validateBody(c, CreateDramaSchema)
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
   const ts = now()
   const res = db.insert(schema.dramas).values({
     title: body.title,
@@ -136,7 +142,12 @@ app.get('/:id', async (c) => {
 // PUT /dramas/:id - Update drama
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json()
+  let body: Record<string, any>
+  try {
+    body = await validateBody(c, UpdateDramaSchema)
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
   const updates: Record<string, any> = { updatedAt: now() }
   if (body.title !== undefined) updates.title = body.title
   if (body.description !== undefined) updates.description = body.description

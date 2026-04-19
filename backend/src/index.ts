@@ -22,6 +22,8 @@ import grid from './routes/grid.js'
 import skills from './routes/skills.js'
 import webhooks from './routes/webhooks.js'
 import aiVoices from './routes/aiVoices.js'
+import health from './routes/health.js'
+import tasks from './routes/tasks.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -41,11 +43,10 @@ app.use('*', cors({
 app.use('*', requestLogger)
 app.use('*', errorHandler)
 
-// Health check
-app.get('/api/v1/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
-
 // API routes
 const api = new Hono()
+api.route('/health', health)
+api.route('/tasks', tasks)
 api.route('/dramas', dramas)
 api.route('/episodes', episodes)
 api.route('/storyboards', storyboards)
@@ -80,3 +81,8 @@ app.get('*', serveStatic({ root: distPath, path: 'index.html' }))
 const port = Number(process.env.PORT || 5679)
 console.log(`🚀 Huobao Drama TS server on http://localhost:${port}`)
 serve({ fetch: app.fetch, port })
+
+// 启动后台重试扫描器
+import('./services/task-queue.js').then(({ startRetryScanner }) => {
+  startRetryScanner()
+})

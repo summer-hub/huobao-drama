@@ -6,6 +6,7 @@ import { generateVoiceSample } from '../services/tts-generation.js'
 import { generateImage } from '../services/image-generation.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { rateLimitMiddleware } from '../middleware/rate-limit.js'
+import { GenerateCharacterImageSchema, BatchGenerateCharacterImagesSchema, GenerateVoiceSampleSchema, validateBody } from '../utils/validation.js'
 
 const app = new Hono()
 
@@ -36,11 +37,15 @@ app.delete('/:id', async (c) => {
 // POST /characters/:id/generate-voice-sample — 生成角色音色试听
 app.post('/:id/generate-voice-sample', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json().catch(() => ({}))
+  let body: Record<string, any>
+  try {
+    body = await validateBody(c, GenerateVoiceSampleSchema)
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
   const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
   if (!char) return badRequest(c, 'Character not found')
   if (!char.voiceStyle) return badRequest(c, '请先分配音色')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
 
   const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
   if (!ep) return badRequest(c, 'Episode not found')
@@ -62,10 +67,14 @@ app.post('/:id/generate-voice-sample', rateLimitMiddleware, async (c) => {
 // POST /characters/:id/generate-image
 app.post('/:id/generate-image', rateLimitMiddleware, async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json()
+  let body: Record<string, any>
+  try {
+    body = await validateBody(c, GenerateCharacterImageSchema)
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
   const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
   if (!char) return badRequest(c, 'Character not found')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
 
   const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
   if (!ep) return badRequest(c, 'Episode not found')
@@ -84,9 +93,13 @@ app.post('/:id/generate-image', rateLimitMiddleware, async (c) => {
 
 // POST /characters/batch-generate-images
 app.post('/batch-generate-images', rateLimitMiddleware, async (c) => {
-  const body = await c.req.json()
-  const ids: number[] = body.character_ids || []
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  let body: Record<string, any>
+  try {
+    body = await validateBody(c, BatchGenerateCharacterImagesSchema)
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
+  const ids: number[] = body.character_ids
   const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
   if (!ep) return badRequest(c, 'Episode not found')
   const results: number[] = []

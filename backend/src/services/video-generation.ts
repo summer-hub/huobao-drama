@@ -6,6 +6,7 @@ import { downloadFile, readImageAsCompressedDataUrl } from '../utils/storage.js'
 import { getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
+import { taskEvents } from './task-events.js'
 
 interface GenerateVideoParams {
   storyboardId?: number
@@ -72,7 +73,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
   return lastId
 }
 
-async function processVideoGeneration(id: number, config: AIConfig) {
+export async function processVideoGeneration(id: number, config: AIConfig) {
   const adapter = getVideoAdapter(config.provider)
 
   try {
@@ -144,6 +145,7 @@ async function processVideoGeneration(id: number, config: AIConfig) {
       .where(eq(schema.videoGenerations.id, id))
       .run()
     logTaskProgress('VideoTask', 'poll-start', { id, taskId, provider: config.provider })
+    taskEvents.emitTaskEvent(id, 'processing', { stage: 'poll-start', taskId, provider: config.provider })
 
     // Vidu 没有轮询端点，跳过轮询（依赖 Webhook 回调）
     if (adapter.provider === 'vidu') {
@@ -158,6 +160,7 @@ async function processVideoGeneration(id: number, config: AIConfig) {
       .set({ status: 'failed', errorMsg: err.message, updatedAt: now() })
       .where(eq(schema.videoGenerations.id, id))
       .run()
+    taskEvents.emitTaskEvent(id, 'failed', { error: err.message })
   }
 }
 
@@ -223,7 +226,12 @@ async function pollVideoTask(id: number, config: AIConfig, taskId: string, story
       }
       if (pollResp.status === 'failed') {
         logTaskError('VideoTask', 'poll-failed', { id, taskId, error: pollResp.error || 'Video generation failed' })
-        throw new Error(pollResp.error || 'Video generation failed')
+        db.update(schema.videoGenerations)
+          .set({ status: 'failed', errorMsg: pollResp.error || 'Video generation failed', updatedAt: now() })
+          .where(eq(schema.videoGenerations.id, id))
+          .run()
+        taskEvents.emitTaskEvent(id, 'failed', { error: pollResp.error })
+        return
       }
     } catch (err: any) {
       if (i === 299) {
@@ -232,9 +240,11 @@ async function pollVideoTask(id: number, config: AIConfig, taskId: string, story
           .set({ status: 'failed', errorMsg: `Timeout: ${err.message}`, updatedAt: now() })
           .where(eq(schema.videoGenerations.id, id))
           .run()
+        taskEvents.emitTaskEvent(id, 'failed', { error: `Timeout: ${err.message}` })
         return
       }
       logTaskWarn('VideoTask', 'poll-retry', { id, taskId, attempt: i + 1, error: err.message })
+      taskEvents.emitTaskEvent(id, 'processing', { stage: 'poll', attempt: i + 1, maxAttempts: 300, error: err.message })
     }
   }
 }
@@ -246,6 +256,7 @@ async function handleVideoComplete(id: number, videoUrl: string, duration: numbe
     .where(eq(schema.videoGenerations.id, id))
     .run()
   logTaskSuccess('VideoTask', 'downloaded', { id, localPath, storyboardId, duration })
+  taskEvents.emitTaskEvent(id, 'completed', { videoUrl, localPath })
 
   if (storyboardId) {
     db.update(schema.storyboards)
